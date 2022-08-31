@@ -2,6 +2,9 @@
 name = "hopcroft-karp"
 version = "0.1.0"
 edition = "2021"
+authors = ["felix <felix.reidl@gmail.com>"]
+description = "A minimal implementation of the Hopcrof-Karp bipartite matching algorithm."
+license = "MIT"
 
 [dependencies]
 fxhash = "0.2.1"
