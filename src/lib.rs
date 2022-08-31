@@ -139,8 +139,8 @@ pub fn matching(edges:Vec<Edge>) -> Vec<Edge> {
 mod tests {
     use super::*;
 
-    use rand::{seq::SliceRandom, SeedableRng, RngCore}; // 0.6.5
-    use rand_chacha::ChaChaRng; // 0.1.1
+    use rand::{SeedableRng, RngCore}; 
+    use rand_chacha::ChaChaRng; 
 
     #[test]
     fn test_basic() {        
@@ -157,8 +157,7 @@ mod tests {
     fn test_random_perfect() {
         // Pseudo-random test: perfect matching exists
         let n:usize = 100;
-        let seed = [4; 32];
-        let mut rng = ChaChaRng::from_seed(seed);
+        let mut rng = ChaChaRng::from_entropy();
 
         let mut edges = Vec::default();
         let mut edges_set = FxHashSet::default();
@@ -183,8 +182,7 @@ mod tests {
     #[test]
     fn test_random_lopsided() {
         let n:usize = 100;
-        let seed = [4; 32];
-        let mut rng = ChaChaRng::from_seed(seed);
+        let mut rng = ChaChaRng::from_entropy();
 
         let mut edges = Vec::default();
         let mut edges_set = FxHashSet::default();
