@@ -1,8 +1,9 @@
 [package]
 name = "hopcroft-karp"
-version = "0.1.0"
-edition = "2021"
+version = "0.1.1"
 authors = ["felix <felix.reidl@gmail.com>"]
+edition = "2021"
+repository = "https://github.com/microgravitas/hopcroft-karp"
 description = "A minimal implementation of the Hopcrof-Karp bipartite matching algorithm."
 license = "MIT"
 
