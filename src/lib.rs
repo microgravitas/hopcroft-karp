@@ -1,3 +1,15 @@
+//!  Example usage:
+//! 
+//! ```
+//! use hopcroft_karp::matching;
+//! 
+//! fn main() {
+//!     let edges = vec![(0,10), (0,11), (0,12), (1,11), (2,12)];
+//!     let res = matching(edges);
+//!     assert_eq!(res.len(), 3);
+//! }
+//! ```
+
 use std::{collections::VecDeque, hash::Hash};
 
 use fxhash::{FxHashMap, FxHashSet};
@@ -5,13 +17,11 @@ use fxhash::{FxHashMap, FxHashSet};
 type VertexSet<V> = FxHashSet<V>;
 type Edge<V> = (V, V);
 
-
 #[derive(PartialEq, Eq, Clone, Hash, Copy)]
 enum Guarded<V> where V: Hash + Copy + Eq {
     GUARD,
     VALUE(V)
 }
-
 
 impl<V> Guarded<V> where V: Hash + Copy + Eq {
     fn vertex<'a>(&'a self) -> &'a V {
