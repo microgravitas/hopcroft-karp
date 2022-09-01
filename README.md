@@ -21,12 +21,15 @@ is potentially expensive (e.g. strings) the crate provides the function `hopcrof
 maps the vertices onto integers and mostly avoids copying the type. 
 
 ```rs
+use hopcroft_karp::{matching, matching_mapped};
+
 fn main() {
     let edges = vec![("spiderman", "doc octopus"), ("spiderman", "sandman"), ("spiderman", "green goblin"),
                      ("silk", "doc octopus"), ("silk", "green goblin"),  ("daredevil", "sandman")];
     let res = matching(&edges);
     assert_eq!(res.len(), 3);
 
+    // For types where copying is expensive, use this instead
     let res = matching_mapped(&edges);
     assert_eq!(res.len(), 3);
 }
