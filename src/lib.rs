@@ -5,7 +5,7 @@
 //! 
 //! fn main() {
 //!     let edges = vec![(0,10), (0,11), (0,12), (1,11), (2,12)];
-//!     let res = matching(edges);
+//!     let res = matching(&edges);
 //!     assert_eq!(res.len(), 3);
 //! }
 //! ```
@@ -120,11 +120,11 @@ struct BGraph<V> {
 }
 
 impl<V> BGraph<V> where V: Hash + Copy + Eq {
-    fn new(edges:Vec<Edge<V>>) -> BGraph<V> {
+    fn new(edges:&Vec<Edge<V>>) -> BGraph<V> {
         let mut left = FxHashSet::default();
         let mut right = FxHashSet::default();
         let mut adj:FxHashMap<V,VertexSet<V>> = FxHashMap::default();
-        for &(u,v) in &edges {
+        for &(u,v) in edges {
             adj.entry(u).or_default().insert(v);
             adj.entry(v).or_default().insert(u);
             left.insert(u);
@@ -156,7 +156,7 @@ impl<V> BGraph<V> where V: Hash + Copy + Eq {
 }
 
 
-pub fn matching<V>(edges:Vec<Edge<V>>) -> Vec<Edge<V>> where V: Hash + Copy + Eq {
+pub fn matching<V>(edges:&Vec<Edge<V>>) -> Vec<Edge<V>> where V: Hash + Copy + Eq {
     BGraph::new(edges).compute()
 }
 
@@ -171,12 +171,16 @@ mod tests {
     #[test]
     fn test_basic() {        
         let edges = vec![(0,10), (0,11), (0,12), (1,11), (2,12)];
-        let res = matching(edges);
+        let res = matching(&edges);
         assert_eq!(res.len(), 3);
+        let expected = vec![(0,10), (1,11), (2,12)];
+        assert_eq!(res.iter().copied().collect::<FxHashSet<(i32,i32)>>(),
+                   expected.iter().copied().collect::<FxHashSet<(i32,i32)>>() );
 
         let edges = vec![(0,10), (0,11), (0,12), (0,13)];
-        let res = matching(edges);
+        let res = matching(&edges);
         assert_eq!(res.len(), 1);
+        assert!(edges.contains(&res[0]));
     }
 
     #[test]
@@ -201,7 +205,7 @@ mod tests {
             }
         }
 
-        let res = matching(edges);
+        let res = matching(&edges);
         assert_eq!(res.len(), n);
     }
 
@@ -226,18 +230,18 @@ mod tests {
             }
         }
 
-        let res = matching(edges);
+        let res = matching(&edges);
         assert_eq!(res.len(), n);
     }
 
     #[test]
     fn test_edge_cases() {
         let edges:Vec<(u8,u8)> = vec![];
-        let res = matching(edges);
+        let res = matching(&edges);
         assert_eq!(res.len(), 0);
 
         let edges = vec![(0,1)];
-        let res = matching(edges);
+        let res = matching(&edges);
         assert_eq!(res.len(), 1);        
     }
 }
