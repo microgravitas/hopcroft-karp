@@ -9,6 +9,21 @@
 //!     assert_eq!(res.len(), 3);
 //! }
 //! ```
+//! 
+//! ```        
+//! use hopcroft_karp::{matching, matching_mapped};
+//! 
+//! fn main() {
+//!     let edges = vec![("spiderman", "doc octopus"), ("spiderman", "sandman"), ("spiderman", "green goblin"),
+//!                      ("silk", "doc octopus"), ("silk", "green goblin"),  ("daredevil", "sandman")];
+//!     let res = matching(&edges);
+//!     assert_eq!(res.len(), 3);
+//! 
+//!     let res = matching_mapped(&edges);
+//!     assert_eq!(res.len(), 3);
+//! }
+//! ```
+//! 
 
 use std::{collections::VecDeque, hash::Hash};
 
@@ -119,6 +134,54 @@ struct BGraph<V> {
     adj:FxHashMap<V,VertexSet<V>>,
 }
 
+impl BGraph<usize> {
+    fn new_mapped<V>(edges:&Vec<Edge<V>>) -> (BGraph<usize>, FxHashMap<usize, V>) where V: Hash + Copy + Eq {
+        let mut orig_left:FxHashSet<V> = FxHashSet::default();
+        let mut orig_right:FxHashSet<V> = FxHashSet::default();
+
+        let mut left = FxHashSet::default();
+        let mut right = FxHashSet::default();
+
+        let mut adj:FxHashMap<usize,VertexSet<usize>> = FxHashMap::default();
+
+        // Collect vertices
+        for (u,v) in edges {
+            orig_left.insert(*u);
+            orig_right.insert(*v);
+        }
+
+        // Create mapping
+        let mut mapping:FxHashMap<V, usize> = FxHashMap::default();
+        let mut back_mapping:FxHashMap<usize, V> = FxHashMap::default();
+        let mut id = 0;
+        for u in orig_left {
+            mapping.insert(u, id);
+            back_mapping.insert(id, u);
+            left.insert(id);
+            id += 1;
+        }
+        for u in orig_right {
+            mapping.insert(u, id);
+            back_mapping.insert(id, u);
+            right.insert(id);
+            id += 1;
+        }        
+
+        // Construct adjacency lists
+        for (u,v) in edges {
+            let u_map = *mapping.get(u).unwrap();
+            let v_map = *mapping.get(v).unwrap();
+
+            adj.entry(u_map).or_default().insert(v_map);
+            adj.entry(v_map).or_default().insert(u_map);
+            left.insert(u_map);
+            right.insert(v_map);
+        }
+
+        (BGraph { left, right, adj}, back_mapping)
+    }
+}
+
 impl<V> BGraph<V> where V: Hash + Copy + Eq {
     fn new(edges:&Vec<Edge<V>>) -> BGraph<V> {
         let mut left = FxHashSet::default();
@@ -158,6 +221,13 @@ impl<V> BGraph<V> where V: Hash + Copy + Eq {
 
 pub fn matching<V>(edges:&Vec<Edge<V>>) -> Vec<Edge<V>> where V: Hash + Copy + Eq {
     BGraph::new(edges).compute()
+}
+
+pub fn matching_mapped<V>(edges:&Vec<Edge<V>>) -> Vec<Edge<V>> where V: Hash + Copy + Eq {
+    let (graph, mapping) = BGraph::new_mapped(edges);
+    let res = graph.compute();
+
+    res.iter().map(|(u,v)| (mapping[u], mapping[v])).collect()
 }
 
 
@@ -244,4 +314,12 @@ mod tests {
         let res = matching(&edges);
         assert_eq!(res.len(), 1);        
     }
+
+    #[test]
+    fn test_spiderman() {
+        let edges = vec![("spiderman", "doc octopus"), ("spiderman", "sandman"), ("spiderman", "green goblin"),
+                         ("silk", "doc octopus"), ("silk", "green goblin"),  ("daredevil", "sandman")];
+        let res = matching(&edges);
+        assert_eq!(res.len(), 3);
+    }    
 }
