@@ -11,7 +11,7 @@ Example usage:
 
     fn main() {
         let edges = vec![(0,10), (0,11), (0,12), (1,11), (2,12)];
-        let res = matching(edges);
+        let res = matching(&edges);
         assert_eq!(res.len(), 3);
     }
 ```
