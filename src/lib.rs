@@ -1,62 +1,72 @@
-use std::collections::VecDeque;
+use std::{collections::VecDeque, hash::Hash};
 
 use fxhash::{FxHashMap, FxHashSet};
 
-type Vertex = usize;
-type VertexSet = FxHashSet<Vertex>;
-type Edge = (Vertex, Vertex);
+type VertexSet<V> = FxHashSet<V>;
+type Edge<V> = (V, V);
 
-// RIGHT_GUARD lies on the left and is connected to 
-// all unmatched vertices on the right
-const RIGHT_GUARD:usize = usize::MAX;
 
-// LEFT_GUARD lies on the right and is connected to 
-// all unmatched vertices on the left
-const LEFT_GUARD:usize = usize::MAX;
+#[derive(PartialEq, Eq, Clone, Hash, Copy)]
+enum Guarded<V> where V: Hash + Copy + Eq {
+    GUARD,
+    VALUE(V)
+}
+
+
+impl<V> Guarded<V> where V: Hash + Copy + Eq {
+    fn vertex<'a>(&'a self) -> &'a V {
+        match self {
+            Guarded::GUARD => panic!(),
+            Guarded::VALUE(u) => u,
+        }
+    }
+}
 
 const INFINITY:usize = usize::MAX;
 
 
-struct HopcroftKarp {
-    pair_left: FxHashMap<Vertex, Vertex>,
-    pair_right: FxHashMap<Vertex, Vertex>,
-    distance:FxHashMap<Vertex, usize>
+struct HopcroftKarp<V> where V: Hash + Copy + Eq {
+    pair_left: FxHashMap<V, Guarded<V>>,
+    pair_right: FxHashMap<V, Guarded<V>>,
+    distance:FxHashMap<Guarded<V>, usize>
 }
 
-impl HopcroftKarp {
-    fn compute(mut self, graph:&BGraph) -> Vec<Edge> {
+impl<V> HopcroftKarp<V> where V: Hash + Copy + Eq {
+    fn compute(mut self, graph:&BGraph<V>) -> Vec<Edge<V>> {
         while self.bfs(&graph) {
             for u in &graph.left {
-                if !self.pair_left[u] != LEFT_GUARD {
-                    self.dfs(u, &graph);
+                if self.pair_left[u] == Guarded::GUARD {
+                    self.dfs(&Guarded::VALUE(*u), &graph);
                 }
             }
         }
         
-        self.pair_left.into_iter().collect()
+        self.pair_left.into_iter().filter(|(_,v)| v != &Guarded::GUARD ).map(|(u,v)| (u, *v.vertex())).collect()
     }
 
-    fn bfs(&mut self, graph:&BGraph) -> bool {
-        let mut queue:VecDeque<Vertex> = VecDeque::default();
+    fn bfs(&mut self, graph:&BGraph<V>) -> bool {
+        let mut queue:VecDeque<Guarded<V>> = VecDeque::default();
         
         for u in &graph.left {
-            if !self.pair_left.contains_key(u) {
-                self.distance.insert(*u, 0);
-                queue.push_back(*u);
+            let u_guarded = Guarded::VALUE(*u);
+            if self.pair_left[u] == Guarded::GUARD {
+                self.distance.insert(u_guarded, 0);
+                queue.push_back(u_guarded);
             } else {
-                self.distance.insert(*u, INFINITY);
+                self.distance.insert(u_guarded, INFINITY);
             }
         }
 
         // Imagine right_guard as a vertex (on the left) which is connected 
         // to all unmatched vertices on the right
-        self.distance.insert(RIGHT_GUARD, INFINITY);
+        self.distance.insert(Guarded::GUARD, INFINITY);
 
         while !queue.is_empty() {
             let u = queue.pop_front().unwrap();
             debug_assert!(self.distance.contains_key(&u));
-            if self.distance[&u] < self.distance[&RIGHT_GUARD] {
-                for v in graph.neighbours(&u) {
+
+            if self.distance[&u] < self.distance[&Guarded::GUARD] {
+                for v in graph.neighbours_guarded(&u) {
                     let v_pair = self.pair_right[&v];
                     if self.distance[&v_pair] == INFINITY {
                         self.distance.insert(v_pair, self.distance[&u] + 1);
@@ -66,27 +76,26 @@ impl HopcroftKarp {
             }
         }
 
-        return self.distance[&RIGHT_GUARD] != INFINITY;
+        return self.distance[&Guarded::GUARD] != INFINITY;
     }   
 
-    fn dfs(&mut self, u:&Vertex, graph:&BGraph) -> bool {
-        debug_assert!(graph.left.contains(u));
-        if *u != RIGHT_GUARD  {
+    fn dfs(&mut self, u_guarded:&Guarded<V>, graph:&BGraph<V>) -> bool {
+        if let Guarded::VALUE(u) = u_guarded  {
             let u_neighbours:Vec<_> = { 
                 graph.neighbours(u).clone().collect()
             };
             for v in u_neighbours {
                 let v_pair = self.pair_right[&v];
-                if self.distance[&v_pair] == self.distance[u]+1 {
+                if self.distance[&v_pair] == self.distance[u_guarded]+1 {
                     if self.dfs(&v_pair, graph) {
                         // Match up v and u
-                        self.pair_right.insert(*v, *u);
-                        self.pair_left.insert(*u ,*v);
+                        self.pair_right.insert(*v, *u_guarded);
+                        self.pair_left.insert(*u ,Guarded::VALUE(*v));
                         return true;
                     }
                 }
             }
-            self.distance.insert(*u, INFINITY);
+            self.distance.insert(*u_guarded, INFINITY);
             false            
         } else {
             true
@@ -94,17 +103,17 @@ impl HopcroftKarp {
     }       
 }
 
-struct BGraph {
-    left: VertexSet,
-    right: VertexSet,
-    adj:FxHashMap<Vertex,VertexSet>,
+struct BGraph<V> {
+    left: VertexSet<V>,
+    right: VertexSet<V>,
+    adj:FxHashMap<V,VertexSet<V>>,
 }
 
-impl BGraph {
-    fn new(edges:Vec<Edge>) -> BGraph {
+impl<V> BGraph<V> where V: Hash + Copy + Eq {
+    fn new(edges:Vec<Edge<V>>) -> BGraph<V> {
         let mut left = FxHashSet::default();
         let mut right = FxHashSet::default();
-        let mut adj:FxHashMap<Vertex,VertexSet> = FxHashMap::default();
+        let mut adj:FxHashMap<V,VertexSet<V>> = FxHashMap::default();
         for &(u,v) in &edges {
             adj.entry(u).or_default().insert(v);
             adj.entry(v).or_default().insert(u);
@@ -115,22 +124,29 @@ impl BGraph {
         BGraph { left, right, adj}
     }
 
-    fn compute(self) -> Vec<Edge> {
-        let pair_left = self.left.iter().map(|u| (*u, LEFT_GUARD)).collect();
-        let pair_right = self.right.iter().map(|v| (*v, RIGHT_GUARD)).collect();
+    fn compute(self) -> Vec<Edge<V>> {
+        let pair_left = self.left.iter().map(|u| (*u, Guarded::GUARD)).collect();
+        let pair_right = self.right.iter().map(|v| (*v, Guarded::GUARD)).collect();
         let distance = FxHashMap::default();
-        let hk = HopcroftKarp{ pair_left, pair_right, distance };
+        let hk = HopcroftKarp::<V>{ pair_left, pair_right, distance };
 
         hk.compute(&self)
     }
 
-    fn neighbours<'a>(&'a self, u:&Vertex) -> std::collections::hash_set::Iter<usize>  {
+    fn neighbours<'a>(&'a self, u:&V) -> std::collections::hash_set::Iter<V>  {
         self.adj[u].iter()
     }
+
+    fn neighbours_guarded<'a>(&'a self, guarded:&Guarded<V>) -> std::collections::hash_set::Iter<V>  {
+        match guarded {
+            Guarded::GUARD => panic!(),
+            Guarded::VALUE(u) => self.adj[u].iter(),
+        }
+    }    
 }
 
 
-pub fn matching(edges:Vec<Edge>) -> Vec<Edge> {
+pub fn matching<V>(edges:Vec<Edge<V>>) -> Vec<Edge<V>> where V: Hash + Copy + Eq {
     BGraph::new(edges).compute()
 }
 
@@ -206,7 +222,7 @@ mod tests {
 
     #[test]
     fn test_edge_cases() {
-        let edges = vec![];
+        let edges:Vec<(u8,u8)> = vec![];
         let res = matching(edges);
         assert_eq!(res.len(), 0);
 
