@@ -1,6 +1,6 @@
 [package]
 name = "hopcroft-karp"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["felix <felix.reidl@gmail.com>"]
 edition = "2021"
 repository = "https://github.com/microgravitas/hopcroft-karp"
