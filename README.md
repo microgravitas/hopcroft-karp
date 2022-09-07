@@ -40,7 +40,7 @@ fn main() {
 
 ## Variants
 
-The crate exposes further methods geared twoards specific use-cases. If only the size of the matching is needed, `hopcroft_karp::matching_size` avoids constructing the solution matching. If only a matching above a certain size is needed,
+The crate exposes further methods geared towards specific use-cases. If only the size of the matching is needed, `hopcroft_karp::matching_size` avoids constructing the solution matching. If only a matching above a certain size is needed,
 `hopcroft_karp::bounded_matching` returns a result as soon as the matching size lies above the provided bound. 
 
 These variants come in all possible combinations, e.g. `hopcroft_karp::bounded_matching_mapped_size` returns the size of 
