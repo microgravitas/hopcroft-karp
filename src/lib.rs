@@ -53,20 +53,44 @@ const INFINITY:usize = usize::MAX;
 struct HopcroftKarp<V> where V: Hash + Copy + Eq {
     pair_left: FxHashMap<V, Guarded<V>>,
     pair_right: FxHashMap<V, Guarded<V>>,
-    distance:FxHashMap<Guarded<V>, usize>
+    distance:FxHashMap<Guarded<V>, usize>,
+    size:usize,
+    max_size:usize
 }
 
 impl<V> HopcroftKarp<V> where V: Hash + Copy + Eq {
+    fn new(graph:&BGraph<V>) -> Self {
+        let pair_left = graph.left.iter().map(|u| (*u, Guarded::GUARD)).collect();
+        let pair_right = graph.right.iter().map(|v| (*v, Guarded::GUARD)).collect();
+        let distance = FxHashMap::default();
+        let max_size = std::cmp::min(graph.left.len(), graph.right.len());
+        HopcroftKarp::<V>{ pair_left, pair_right, distance, size:0, max_size }
+    }
+
     fn compute(mut self, graph:&BGraph<V>) -> Vec<Edge<V>> {
-        while self.bfs(&graph) {
+        while self.bfs(&graph) && self.size < self.max_size {
             for u in &graph.left {
                 if self.pair_left[u] == Guarded::GUARD {
-                    self.dfs(&Guarded::VALUE(*u), &graph);
+                    if self.dfs(&Guarded::VALUE(*u), &graph) {
+                        self.size += 1;
+                    }
                 }
             }
         }
-        
         self.pair_left.into_iter().filter(|(_,v)| v != &Guarded::GUARD ).map(|(u,v)| (u, *v.vertex())).collect()
+    }
+
+    fn compute_size(mut self, graph:&BGraph<V>) -> usize {
+        while self.bfs(&graph) && self.size < self.max_size {
+            for u in &graph.left {
+                if self.pair_left[u] == Guarded::GUARD {
+                    if self.dfs(&Guarded::VALUE(*u), &graph) {
+                        self.size += 1;
+                    }
+                }
+            }
+        }
+        self.size
     }
 
     fn bfs(&mut self, graph:&BGraph<V>) -> bool {
@@ -194,17 +218,34 @@ impl<V> BGraph<V> where V: Hash + Copy + Eq {
             right.insert(v);
         }
 
+        if left.intersection(&right).count() > 0 {
+            panic!("Provided graph is not bipartite!");
+        }
+
         BGraph { left, right, adj}
     }
 
     fn compute(self) -> Vec<Edge<V>> {
-        let pair_left = self.left.iter().map(|u| (*u, Guarded::GUARD)).collect();
-        let pair_right = self.right.iter().map(|v| (*v, Guarded::GUARD)).collect();
-        let distance = FxHashMap::default();
-        let hk = HopcroftKarp::<V>{ pair_left, pair_right, distance };
-
+        let hk = HopcroftKarp::new(&self);
         hk.compute(&self)
     }
+
+    fn compute_size(self) -> usize {
+        let hk = HopcroftKarp::new(&self);
+        hk.compute_size(&self)
+    }    
+
+    fn compute_bounded(self, bound: usize) -> Vec<Edge<V>> {
+        let mut hk = HopcroftKarp::new(&self);
+        hk.max_size = std::cmp::min(bound, hk.max_size);
+        hk.compute(&self)
+    }
+
+    fn compute_bounded_size(self, bound: usize) -> usize {
+        let mut hk = HopcroftKarp::new(&self);
+        hk.max_size = std::cmp::min(bound, hk.max_size);
+        hk.compute_size(&self)
+    }    
 
     fn neighbours<'a>(&'a self, u:&V) -> std::collections::hash_set::Iter<V>  {
         self.adj[u].iter()
@@ -218,9 +259,12 @@ impl<V> BGraph<V> where V: Hash + Copy + Eq {
     }    
 }
 
-
 pub fn matching<V>(edges:&Vec<Edge<V>>) -> Vec<Edge<V>> where V: Hash + Copy + Eq {
     BGraph::new(edges).compute()
+}
+
+pub fn matching_size<V>(edges:&Vec<Edge<V>>) -> usize where V: Hash + Copy + Eq {
+    BGraph::new(edges).compute_size()
 }
 
 pub fn matching_mapped<V>(edges:&Vec<Edge<V>>) -> Vec<Edge<V>> where V: Hash + Copy + Eq {
@@ -228,6 +272,27 @@ pub fn matching_mapped<V>(edges:&Vec<Edge<V>>) -> Vec<Edge<V>> where V: Hash + C
     let res = graph.compute();
 
     res.iter().map(|(u,v)| (mapping[u], mapping[v])).collect()
+}
+
+pub fn matching_mapped_size<V>(edges:&Vec<Edge<V>>) -> usize where V: Hash + Copy + Eq {
+    let (graph, _) = BGraph::new_mapped(edges);
+    graph.compute_size()
+}
+
+pub fn bounded_matching<V>(edges:&Vec<Edge<V>>, bound:usize) -> Vec<Edge<V>> where V: Hash + Copy + Eq {
+    BGraph::new(edges).compute_bounded(bound)
+}
+
+pub fn bounded_matching_mapped<V>(edges:&Vec<Edge<V>>, bound:usize) -> Vec<Edge<V>> where V: Hash + Copy + Eq {
+    let (graph, mapping) = BGraph::new_mapped(edges);
+    let res = graph.compute_bounded(bound);
+
+    res.iter().map(|(u,v)| (mapping[u], mapping[v])).collect()
+}
+
+pub fn bounded_matching_mapped_size<V>(edges:&Vec<Edge<V>>, bound:usize) -> usize where V: Hash + Copy + Eq {
+    let (graph, _) = BGraph::new_mapped(edges);
+    graph.compute_bounded_size(bound)
 }
 
 
@@ -277,6 +342,7 @@ mod tests {
 
         let res = matching(&edges);
         assert_eq!(res.len(), n);
+        assert_eq!(res.len(), matching_size(&edges));
     }
 
     #[test]
@@ -302,6 +368,7 @@ mod tests {
 
         let res = matching(&edges);
         assert_eq!(res.len(), n);
+        assert_eq!(res.len(), matching_size(&edges));        
     }
 
     #[test]
@@ -312,7 +379,17 @@ mod tests {
 
         let edges = vec![(0,1)];
         let res = matching(&edges);
-        assert_eq!(res.len(), 1);        
+        assert_eq!(res.len(), 1);
+
+        let edges = vec![(0,1), (0,1)];
+        let res = matching(&edges);
+        assert_eq!(res.len(), 1);   
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_non_bipartite() {
+        matching(&vec![(0,1),(0,2),(1,2)]);
     }
 
     #[test]
